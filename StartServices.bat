@@ -1,0 +1,1 @@
+C:\PHP\php-cgi.exe -f C:\Git\espocrm_david\build\EspoCRM-5.5.7\cron.php

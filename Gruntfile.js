@@ -295,4 +295,18 @@ module.exports = function (grunt) {
         'chmod',
         'clean:final'
     ]);
+
+    grunt.registerTask('rebuild', [
+        // 'less',
+        // 'cssmin',
+        'uglify',
+        'copy:frontendFolders',
+        'copy:frontendLib',
+        'copy:backend',
+        // 'replace',
+        'clean:beforeFinal',
+        'copy:final',
+        // 'chmod',        
+        'clean:final'
+    ]);    
 };
