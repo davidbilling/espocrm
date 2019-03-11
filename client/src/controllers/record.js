@@ -26,7 +26,7 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-Espo.define('controllers/record', 'controller', function (Dep) {
+define('controllers/record', 'controller', function (Dep) {
 
     return Dep.extend({
 
@@ -55,7 +55,7 @@ Espo.define('controllers/record', 'controller', function (Dep) {
             this.handleCheckAccess('read');
         },
 
-        list: function (options) {
+        actionList: function (options) {
             var isReturn = options.isReturn;
             if (this.getRouter().backProcessed) {
                 isReturn = true;
@@ -100,7 +100,7 @@ Espo.define('controllers/record', 'controller', function (Dep) {
 
         prepareModelView: function (model, options) {},
 
-        view: function (options) {
+        actionView: function (options) {
             var id = options.id;
 
             var createView = function (model) {
@@ -196,6 +196,10 @@ Espo.define('controllers/record', 'controller', function (Dep) {
             }.bind(this));
         },
 
+        actionCreate: function (options) {
+            this.create(options);
+        },
+
         beforeEdit: function () {
             this.handleCheckAccess('edit');
         },
@@ -210,7 +214,7 @@ Espo.define('controllers/record', 'controller', function (Dep) {
             }, this);
         },
 
-        edit: function (options) {
+        actionEdit: function (options) {
             var id = options.id;
 
             this.getModel().then(function (model) {
@@ -249,7 +253,7 @@ Espo.define('controllers/record', 'controller', function (Dep) {
             this.handleCheckAccess('edit');
         },
 
-        merge: function (options) {
+        actionMerge: function (options) {
             var ids = options.ids.split(',');
 
             this.getModel().then(function (model) {

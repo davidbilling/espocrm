@@ -148,15 +148,18 @@ class Email extends Record
             if (!$smtpParams) {
                 if ($emailAccount && $emailAccount->get('useSmtp')) {
                     $smtpParams = $emailAccountService->getSmtpParamsFromAccount($emailAccount);
-                    if ($smtpParams) {
-                        $emailSender->useSmtp($smtpParams);
-                    }
                 }
             }
             if ($smtpParams) {
                 $smtpParams['fromName'] = $this->getUser()->get('name');
-                $emailSender->useSmtp($smtpParams);
             }
+        }
+
+        if ($smtpParams) {
+            if ($fromAddress) {
+                $this->applySmtpHandler($this->getUser()->id, $fromAddress, $smtpParams);
+            }
+            $emailSender->useSmtp($smtpParams);
         }
 
         if (!$smtpParams) {
@@ -164,9 +167,9 @@ class Email extends Record
             $inboundEmail = $inboundEmailService->findSharedAccountForUser($this->getUser(), $fromAddress);
             if ($inboundEmail) {
                 $smtpParams = $inboundEmailService->getSmtpParamsFromAccount($inboundEmail);
-                if ($smtpParams) {
-                    $emailSender->useSmtp($smtpParams);
-                }
+            }
+            if ($smtpParams) {
+                $emailSender->useSmtp($smtpParams);
             }
         }
 
@@ -254,6 +257,27 @@ class Email extends Record
         $entity->set('isJustSent', true);
 
         $this->getEntityManager()->saveEntity($entity);
+    }
+
+    protected function applySmtpHandler(string $userId, string $emailAddress, array &$params)
+    {
+        $userData = $this->getEntityManager()->getRepository('UserData')->getByUserId($userId);
+        if ($userData) {
+            $smtpHandlers = $userData->get('smtpHandlers') ?? (object) [];
+            if (is_object($smtpHandlers)) {
+                if (isset($smtpHandlers->$emailAddress)) {
+                    $handlerClassName = $smtpHandlers->$emailAddress;
+                    try {
+                        $handler = $this->getInjection('injectableFactory')->createByClassName($handlerClassName);
+                    } catch (\Throwable $e) {
+                        $GLOBALS['log']->error("Send Email: Could not create Smtp Handler for {$emailAddress}. Error: " . $e->getMessage());
+                    }
+                    if (method_exists($handler, 'applyParams')) {
+                        $handler->applyParams($userId, $emailAddress, $params);
+                    }
+                }
+            }
+        }
     }
 
     public function validateEmailAddresses(\Espo\Entities\Email $entity)
@@ -789,24 +813,46 @@ class Email extends Record
             }
         }
 
-        return array(
+        return [
             'ids' => $ids,
             'names' => $names
-        );
+        ];
     }
 
     public function sendTestEmail($data)
     {
+        $smtpParams = $data;
+
+        if (empty($smtpParams['auth'])) {
+            unset($smtpParams['username']);
+            unset($smtpParams['password']);
+        }
+
+        $userId = $data['userId'] ?? null;
+        $fromAddress = $data['fromAddress'] ?? null;
+
+        if ($userId) {
+            if ($userId !== $this->getUser()->id && !$this->getUser()->isAdmin()) {
+                throw new Forbidden();
+            }
+        }
+
         $email = $this->getEntityManager()->getEntity('Email');
 
-        $email->set(array(
+        $email->set([
             'subject' => 'EspoCRM: Test Email',
             'isHtml' => false,
-            'to' => $data['emailAddress']
-        ));
+            'to' => $data['emailAddress'],
+        ]);
+
+        if ($userId) {
+            if ($fromAddress) {
+                $this->applySmtpHandler($userId, $fromAddress, $smtpParams);
+            }
+        }
 
         $emailSender = $this->getMailSender();
-        $emailSender->useSmtp($data)->send($email);
+        $emailSender->useSmtp($smtpParams)->send($email);
 
         return true;
     }

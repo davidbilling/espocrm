@@ -1,3 +1,4 @@
+<?php
 /************************************************************************
  * This file is part of EspoCRM.
  *
@@ -26,38 +27,30 @@
  * these Appropriate Legal Notices must retain the display of the "EspoCRM" word.
  ************************************************************************/
 
-define('controllers/api-user', 'controllers/record', function (Dep) {
+namespace Espo\Repositories;
 
-    return Dep.extend({
+use \Espo\ORM\Entity;
 
-        entityType: 'User',
+class UserData extends \Espo\Core\ORM\Repositories\RDB
+{
+    public function getByUserId(string $userId) : ?Entity
+    {
+        $userData = $this->where(['userId' => $userId])->findOne();
 
-        getCollection: function (callback, context, usePreviouslyFetched) {
-            context = context || this;
-            Dep.prototype.getCollection.call(this, function (collection) {
-                collection.data.filterList = ['api'];
-                callback.call(context, collection);
-            }, context, usePreviouslyFetched);
-        },
+        if ($userData) return $userData;
 
-        createViewView: function (options, model) {
-            if (!model.isApi()) {
-                if (model.isPortal()) {
-                    this.getRouter().dispatch('PortalUser', 'view', {id: model.id, model: model});
-                    return;
-                }
-                this.getRouter().dispatch('User', 'view', {id: model.id, model: model});
-                return;
-            }
-            Dep.prototype.createViewView.call(this, options, model);
-        },
+        $user = $this->getEntityManager()->getRepository('User')->getById($userId);
 
-        actionCreate: function (options) {
-            options = options || {};
-            options.attributes = options.attributes  || {};
-            options.attributes.type = 'api';
-            Dep.prototype.actionCreate.call(this, options);
-        }
+        if (!$user) return null;
 
-    });
-});
+        $userData = $this->getNew();
+        $userData->set('userId', $userId);
+
+        $this->save($userData, [
+            'silent' => true,
+            'skipHooks' => true,
+        ]);
+
+        return $userData;
+    }
+}
